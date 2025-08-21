@@ -8,6 +8,8 @@ import { logger } from "./utils/logger";
 import health from "./routes/health";
 import summarize from "./routes/summarize";
 import tts from "./routes/tts";
+import { summarizeText } from "./lib/openai";
+
 
 const app = express();
 
@@ -23,6 +25,16 @@ app.get("/", (_req, res) => res.redirect("/health"));
 app.use("/health", health);
 app.use("/summarize", summarize);
 app.use("/tts", tts);
+
+app.get("/test-openai", async (_req, res) => {
+  try {
+    const result = await summarizeText("This is a quick test of the API key.");
+    res.json(result);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "OpenAI test failed" });
+  }
+});
 
 app.use((err: any, req: any, res: any, _next: any) => {
   const status = err.status || 500;
