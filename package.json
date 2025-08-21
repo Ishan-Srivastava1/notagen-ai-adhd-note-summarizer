@@ -1,0 +1,40 @@
+{
+  "name": "notagen-ai-adhd-note-summarizer-1",
+  "version": "1.0.0",
+  "description": "AI-powered note summarizer designed for ADHD-friendly reading. Generates color-coded summaries, highlights, and deadlines from long text, with optional text-to-speech.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon --watch src --exec ts-node src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ishan-Srivastava1/notagen-ai-adhd-note-summarizer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Ishan-Srivastava1/notagen-ai-adhd-note-summarizer/issues"
+  },
+  "homepage": "https://github.com/Ishan-Srivastava1/notagen-ai-adhd-note-summarizer#readme",
+  "dependencies": {
+    "@prisma/client": "^6.14.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "pino": "^9.9.0",
+    "pino-http": "^10.5.0",
+    "zod": "^4.0.17"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.2.1",
+    "nodemon": "^3.1.10",
+    "prisma": "^6.14.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
