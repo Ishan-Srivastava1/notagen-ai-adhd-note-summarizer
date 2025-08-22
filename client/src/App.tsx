@@ -1,13 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import type { Summary } from "./types";
+import { categoryColor, chipClass } from "./colors";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:8080";
-
-type Summary = {
-  bullets: string[];
-  highlights: string[];
-  deadlines: { label: string; due: string }[];
-  actions: { label: string; priority: "low" | "medium" | "high" }[];
-};
 
 type Note = {
   id: string;
@@ -233,44 +228,88 @@ export default function App() {
             {summary && (
               <div className="grid md:grid-cols-2 gap-4">
                 <Card title="Bullets">
-                  <ul className="list-disc pl-5 space-y-1">
-                    {summary.bullets?.map((b, i) => (
-                      <li key={i}>{b}</li>
-                    ))}
+                  <ul className="space-y-2">
+                    {summary.bullets?.map((b, i) => {
+                      const color = categoryColor(b.category);
+                      return (
+                        <li key={i} className="p-2 rounded-lg border bg-white">
+                          <div className={`border-l-4 pl-3 border-${color}-300`}>
+                            <div className="flex items-center gap-2">
+                              <span className={chipClass(color)}>{b.category}</span>
+                              <span className="text-sm">{b.text}</span>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </Card>
 
+
                 <Card title="Highlights">
-                  <ul className="list-disc pl-5 space-y-1">
-                    {summary.highlights?.map((h, i) => (
-                      <li key={i}>{h}</li>
-                    ))}
+                  <ul className="space-y-2">
+                    {summary.highlights?.map((h, i) => {
+                      const color = categoryColor(h.category);
+                      return (
+                        <li key={i} className="p-2 rounded-lg border bg-white">
+                          <div className={`border-l-4 pl-3 border-${color}-300`}>
+                            <div className="flex items-center gap-2">
+                              <span className={chipClass(color)}>{h.category}</span>
+                              <span className="text-sm">{h.text}</span>
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </Card>
 
                 <Card title="Deadlines">
                   <ul className="space-y-2">
-                    {summary.deadlines?.map((d, i) => (
-                      <li key={i} className="flex items-center justify-between">
-                        <span>{d.label}</span>
-                        <span className="text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
-                          {d.due}
-                        </span>
-                      </li>
-                    ))}
+                    {summary.deadlines?.map((d, i) => {
+                      const color = categoryColor(d.category); // "deadline" -> rose (per your colors.ts)
+                      return (
+                        <li key={i} className="p-2 rounded-lg border bg-white">
+                          <div className={`flex items-center justify-between border-l-4 pl-3 border-${color}-300`}>
+                            <div className="flex items-center gap-2">
+                              <span className={chipClass(color)}>{d.category}</span>
+                              <span className="text-sm">{d.label}</span>
+                            </div>
+                            <span className="text-xs px-2 py-1 rounded border bg-white">
+                              {d.due}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </Card>
 
                 <Card title="Actions">
-                  <ul className="space-y-1">
-                    {summary.actions?.map((a, i) => (
-                      <li key={i} className="flex items-center justify-between">
-                        <span>{a.label}</span>
-                        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 border">
-                          {a.priority}
-                        </span>
-                      </li>
-                    ))}
+                  <ul className="space-y-2">
+                    {summary.actions?.map((a, i) => {
+                      const color = categoryColor(a.category); // "action" -> sky (per your colors.ts)
+                      const priorityChip =
+                        a.priority === "high"
+                          ? "bg-rose-100 text-rose-800 border-rose-200"
+                          : a.priority === "medium"
+                          ? "bg-amber-100 text-amber-800 border-amber-200"
+                          : "bg-emerald-100 text-emerald-800 border-emerald-200";
+
+                      return (
+                        <li key={i} className="p-2 rounded-lg border bg-white">
+                          <div className={`flex items-center justify-between border-l-4 pl-3 border-${color}-300`}>
+                            <div className="flex items-center gap-2">
+                              <span className={chipClass(color)}>{a.category}</span>
+                              <span className="text-sm">{a.label}</span>
+                            </div>
+                            <span className={`text-xs px-2 py-0.5 rounded border ${priorityChip}`}>
+                              {a.priority}
+                            </span>
+                          </div>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </Card>
               </div>
