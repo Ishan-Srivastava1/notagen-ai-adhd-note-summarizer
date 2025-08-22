@@ -23,6 +23,22 @@ export default function App() {
   const [cached, setCached] = useState<boolean | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+    // Category filters for Bullets
+  const [showCats, setShowCats] = useState<string[]>([
+    "concept",
+    "definition",
+    "example",
+    "tip",
+    "warning",
+  ]);
+
+  const toggleCat = (c: string) =>
+    setShowCats((s) => (s.includes(c) ? s.filter((x) => x !== c) : [...s, c]));
+
+  // Date formatting for deadlines
+  const fmt = (d: string) => new Date(d).toLocaleDateString();
+
+
   // Initial load: health + notes
   useEffect(() => {
     fetch(`${API}/health`)
@@ -200,7 +216,7 @@ export default function App() {
               value={text}
               onChange={(e) => setText(e.target.value)}
             />
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 sticky bottom-4 flex gap-2 bg-white/80 backdrop-blur p-2 rounded-xl border w-fit">
               <button
                 onClick={onSummarize}
                 disabled={loading || text.trim().length < 10}
@@ -219,6 +235,9 @@ export default function App() {
 
           <div className="bg-white border rounded-2xl p-4">
             <h2 className="font-semibold mb-3">Summary</h2>
+
+            {loading && <div className="animate-pulse h-24 rounded-xl bg-slate-100 mb-3" />}
+
             {!summary && (
               <p className="text-sm text-gray-500">
                 No summary yet. Click “Summarize”.
@@ -227,28 +246,65 @@ export default function App() {
 
             {summary && (
               <div className="grid md:grid-cols-2 gap-4">
-                <Card title="Bullets">
-                  <ul className="space-y-2">
-                    {summary.bullets?.map((b, i) => {
-                      const color = categoryColor(b.category);
+                <Card
+                  title="Bullets"
+                  onCopy={() =>
+                    navigator.clipboard.writeText(
+                      (summary?.bullets ?? []).map((b) => `• ${b.text}`).join("\n")
+                    )
+                  }
+                >
+                  {/* Legend / filter */}
+                  <div className="mb-2">
+                    {["concept", "definition", "example", "tip", "warning"].map((c) => {
+                      const color = categoryColor(c);
                       return (
-                        <li key={i} className="p-2 rounded-lg border bg-white">
-                          <div className={`border-l-4 pl-3 border-${color}-300`}>
-                            <div className="flex items-center gap-2">
-                              <span className={chipClass(color)}>{b.category}</span>
-                              <span className="text-sm">{b.text}</span>
-                            </div>
-                          </div>
-                        </li>
+                        <button
+                          key={c}
+                          onClick={() => toggleCat(c)}
+                          className={`${chipClass(color)} mr-2 ${
+                            showCats.includes(c) ? "opacity-100" : "opacity-40"
+                          }`}
+                        >
+                          {c}
+                        </button>
                       );
                     })}
+                  </div>
+
+                  {/* Filtered bullets */}
+                  <ul className="space-y-2">
+                    {(summary?.bullets ?? [])
+                      .filter((b) => showCats.includes(b.category))
+                      .map((b, i) => {
+                        const color = categoryColor(b.category);
+                        return (
+                          <li key={i} className="p-2 rounded-lg border bg-white">
+                            <div className={`border-l-4 pl-3 border-${color}-300`}>
+                              <div className="flex items-center gap-2">
+                                <span className={chipClass(color)}>{b.category}</span>
+                                <span className="text-sm">{b.text}</span>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    {summary?.bullets?.length === 0 && (
+                      <li className="text-sm text-gray-500">No bullets yet</li>
+                    )}
                   </ul>
                 </Card>
 
-
-                <Card title="Highlights">
+                <Card
+                  title="Highlights"
+                  onCopy={() =>
+                    navigator.clipboard.writeText(
+                      (summary?.highlights ?? []).map((h) => `• ${h.text}`).join("\n")
+                    )
+                  }
+                >
                   <ul className="space-y-2">
-                    {summary.highlights?.map((h, i) => {
+                    {(summary?.highlights ?? []).map((h, i) => {
                       const color = categoryColor(h.category);
                       return (
                         <li key={i} className="p-2 rounded-lg border bg-white">
@@ -261,34 +317,60 @@ export default function App() {
                         </li>
                       );
                     })}
+                    {summary?.highlights?.length === 0 && (
+                      <li className="text-sm text-gray-500">No highlights yet</li>
+                    )}
                   </ul>
                 </Card>
 
-                <Card title="Deadlines">
+                <Card
+                  title="Deadlines"
+                  onCopy={() =>
+                    navigator.clipboard.writeText(
+                      (summary?.deadlines ?? [])
+                        .map((d) => `- ${d.label} — ${fmt(d.due)}`)
+                        .join("\n")
+                    )
+                  }
+                >
                   <ul className="space-y-2">
-                    {summary.deadlines?.map((d, i) => {
-                      const color = categoryColor(d.category); // "deadline" -> rose (per your colors.ts)
+                    {(summary?.deadlines ?? []).map((d, i) => {
+                      const color = categoryColor(d.category); // "deadline" -> rose (per colors.ts)
                       return (
                         <li key={i} className="p-2 rounded-lg border bg-white">
-                          <div className={`flex items-center justify-between border-l-4 pl-3 border-${color}-300`}>
+                          <div
+                            className={`flex items-center justify-between border-l-4 pl-3 border-${color}-300`}
+                          >
                             <div className="flex items-center gap-2">
                               <span className={chipClass(color)}>{d.category}</span>
                               <span className="text-sm">{d.label}</span>
                             </div>
                             <span className="text-xs px-2 py-1 rounded border bg-white">
-                              {d.due}
+                              {fmt(d.due)}
                             </span>
                           </div>
                         </li>
                       );
                     })}
+                    {summary?.deadlines?.length === 0 && (
+                      <li className="text-sm text-gray-500">No deadlines found</li>
+                    )}
                   </ul>
                 </Card>
 
-                <Card title="Actions">
+                <Card
+                  title="Actions"
+                  onCopy={() =>
+                    navigator.clipboard.writeText(
+                      (summary?.actions ?? [])
+                        .map((a) => `- [${a.priority}] ${a.label}`)
+                        .join("\n")
+                    )
+                  }
+                >
                   <ul className="space-y-2">
-                    {summary.actions?.map((a, i) => {
-                      const color = categoryColor(a.category); // "action" -> sky (per your colors.ts)
+                    {(summary?.actions ?? []).map((a, i) => {
+                      const color = categoryColor(a.category); // "action" -> sky (per colors.ts)
                       const priorityChip =
                         a.priority === "high"
                           ? "bg-rose-100 text-rose-800 border-rose-200"
@@ -298,7 +380,9 @@ export default function App() {
 
                       return (
                         <li key={i} className="p-2 rounded-lg border bg-white">
-                          <div className={`flex items-center justify-between border-l-4 pl-3 border-${color}-300`}>
+                          <div
+                            className={`flex items-center justify-between border-l-4 pl-3 border-${color}-300`}
+                          >
                             <div className="flex items-center gap-2">
                               <span className={chipClass(color)}>{a.category}</span>
                               <span className="text-sm">{a.label}</span>
@@ -310,6 +394,9 @@ export default function App() {
                         </li>
                       );
                     })}
+                    {summary?.actions?.length === 0 && (
+                      <li className="text-sm text-gray-500">No actions yet</li>
+                    )}
                   </ul>
                 </Card>
               </div>
@@ -324,14 +411,27 @@ export default function App() {
 function Card({
   title,
   children,
+  onCopy,
 }: {
   title: string;
   children: React.ReactNode;
+  onCopy?: () => void;
 }) {
   return (
     <div className="bg-white border rounded-xl p-4">
-      <h3 className="font-medium mb-2">{title}</h3>
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-medium">{title}</h3>
+        {onCopy && (
+          <button
+            onClick={onCopy}
+            className="text-xs px-2 py-1 border rounded hover:bg-gray-50"
+          >
+            Copy
+          </button>
+        )}
+      </div>
       {children}
     </div>
   );
 }
+
