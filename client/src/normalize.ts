@@ -13,7 +13,19 @@ export function normalizeSummary(s: any): Summary {
   const deadlines = (s?.deadlines ?? []).map((d: any) => ({ label: d.label, due: d.due, category: "deadline" as const }));
   const actions = (s?.actions ?? []).map((a: any) => ({ label: a.label, priority: a.priority || "medium", category: "action" as const }));
 
-  return { bullets, highlights, deadlines, actions };
+  const topics = (s?.topics ?? []).map((t: any) => ({
+    name: t.name ?? "",
+    description: t.description ?? "",
+    searchQuery: t.searchQuery ?? t.name ?? "",
+  }));
+  const studyPlan = (s?.studyPlan ?? []).map((p: any) => ({
+    day: Number(p.day) || 0,
+    task: p.task ?? "",
+    duration: p.duration ?? "",
+    notes: p.notes ?? "",
+  }));
+
+  return { bullets, highlights, deadlines, actions, topics, studyPlan };
 }
 
 function guessCategory(t: string) {

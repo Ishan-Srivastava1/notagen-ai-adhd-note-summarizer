@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB:       notagen
+      POSTGRES_USER:     notagen
+      POSTGRES_PASSWORD: notagen
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:     ["CMD-SHELL", "pg_isready -U notagen"]
+      interval: 5s
+      timeout:  5s
+      retries:  5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
+    healthcheck:
+      test:     ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout:  3s
+      retries:  5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV:                production
+      PORT:                    8080
+      WEB_ORIGIN:              http://localhost:5173
+      DATABASE_URL:            postgresql://notagen:notagen@postgres:5432/notagen
+      REDIS_URL:               redis://redis:6379
+      GROQ_API_KEY:            ${GROQ_API_KEY}
+      GROQ_MODEL:              ${GROQ_MODEL:-llama-3.3-70b-versatile}
+      AWS_REGION:              ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID:       ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY:   ${AWS_SECRET_ACCESS_KEY}
+      SUMMARY_TTL_SECONDS:     86400
+      NOTE_TTL_SECONDS:        300
+      NOTES_LIST_TTL_SECONDS:  60
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8080
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  pgdata:

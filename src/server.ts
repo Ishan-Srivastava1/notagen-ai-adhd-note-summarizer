@@ -13,34 +13,30 @@ import { summarizeText } from "./lib/openai";
 
 const app = express();
 
-// 🔐 middleware FIRST
 app.use(helmet());
 app.use(cors({
   origin: process.env.WEB_ORIGIN?.split(",") || "*",
-  credentials: false
+  credentials: false,
 }));
-app.use(express.json({ limit: "1mb" })); // 👈 must be before routes
+app.use(express.json({ limit: "1mb" }));
 app.use(pinoHttp({ logger }));
 
-// 🚏 routes AFTER middleware
 app.get("/", (_req, res) => res.redirect("/health"));
 app.use("/health", health);
 app.use("/summarize", summarize);
 app.use("/tts", tts);
 app.use("/notes", notes);
 
-// test endpoint (optional)
-app.get("/test-openai", async (_req, res) => {
+// Quick smoke-test for the Gemini key
+app.get("/test-ai", async (_req, res) => {
   try {
-    const result = await summarizeText("This is a quick test of the API key.");
+    const result = await summarizeText("The mitochondria is the powerhouse of the cell.");
     res.json(result);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "OpenAI test failed" });
+    res.status(500).json({ error: "Gemini test failed" });
   }
 });
 
-// error handler
 app.use((err: any, req: any, res: any, _next: any) => {
   const status = err.status || 500;
   req.log?.error?.(err);

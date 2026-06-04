@@ -1,77 +1,113 @@
-// src/routes/summarize.ts
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { parseOrThrow } from "../utils/validate";
-import { summarizeText } from "../lib/openai";
+import { streamSummarizeChunks, summarizeText } from "../lib/openai";
 import { contentHash } from "../utils/hash";
-import { getCachedSummary, setCachedSummary } from "../utils/cache";
+import {
+  getCachedSummary,
+  setCachedSummary,
+  invalidateCachedNote,
+  invalidateCachedNotesList,
+} from "../utils/cache";
 import prisma from "../lib/prisma";
 
 const router = Router();
 
 const Body = z.object({
   text: z.string().min(10, "Provide at least 10 characters"),
-  noteId: z.string().optional()
+  noteId: z.string().optional(),
 });
 
-router.post("/", async (req, res, next) => {
+function persistSummaryAsync(noteId: string, summary: unknown, hash: string) {
+  prisma.note
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .update({ where: { id: noteId }, data: { summary: summary as any, summaryHash: hash } })
+    .then(() => {
+      invalidateCachedNote(noteId).catch(() => null);
+      invalidateCachedNotesList().catch(() => null);
+    })
+    .catch(() => null);
+}
+
+// SSE streaming handler (?stream=1)
+async function handleStream(req: Request, res: Response, next: NextFunction) {
   try {
     const { text, noteId } = parseOrThrow(Body, req.body);
     const hash = contentHash(text);
 
-    // 1) Try Redis cache
+    res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders();
+
+    const send = (payload: object) => res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
     const cached = await getCachedSummary(hash);
     if (cached) {
-      // ✅ write-through to DB if noteId was provided (so the note gets summary even on cache hits)
-      if (noteId) {
-        
-        await prisma.note.update({
-          where: { id: noteId },
-          data: {
-            summary: cached,
-            summaryHash: hash,
-          },
-        }).catch(() => null);
-      }
+      if (noteId) persistSummaryAsync(noteId, cached, hash);
+      send({ type: "done", summary: cached, cached: true });
+      return res.end();
+    }
 
+    let raw = "";
+    for await (const chunk of streamSummarizeChunks(text)) {
+      raw += chunk;
+      send({ type: "chunk", text: chunk });
+    }
+
+    let summary: unknown;
+    try {
+      summary = JSON.parse(raw);
+    } catch {
+      send({ type: "error", message: "Gemini returned non-JSON content" });
+      return res.end();
+    }
+
+    setCachedSummary(hash, summary).catch(() => null);
+    if (noteId) persistSummaryAsync(noteId, summary, hash);
+
+    send({ type: "done", summary, cached: false });
+    return res.end();
+  } catch (err: any) {
+    try {
+      res.write(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`);
+      res.end();
+    } catch {
+      next(err);
+    }
+  }
+}
+
+router.post("/", async (req: Request, res: Response, next: NextFunction) => {
+  if (req.query.stream === "1" || req.query.stream === "true") {
+    return handleStream(req, res, next);
+  }
+
+  try {
+    const { text, noteId } = parseOrThrow(Body, req.body);
+    const hash = contentHash(text);
+
+    const cached = await getCachedSummary(hash);
+    if (cached) {
+      if (noteId) persistSummaryAsync(noteId, cached, hash);
       return res.json({
         summary: cached,
-        meta: {
-          inputChars: text.length,
-          cached: true,
-          model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-        },
+        meta: { inputChars: text.length, cached: true, model: process.env.GEMINI_MODEL || "gemini-1.5-flash" },
       });
     }
 
-    // 2) Call OpenAI
     const summary = await summarizeText(text);
 
-    // 3) Save to Redis cache
-    await setCachedSummary(hash, summary);
+    setCachedSummary(hash, summary).catch(() => null);
+    if (noteId) persistSummaryAsync(noteId, summary, hash);
 
-    // 4) Persist to DB if a noteId was provided
-    if (noteId) {
-      await prisma.note.update({
-        where: { id: noteId },
-        data: {
-          summary,
-          summaryHash: hash,
-        },
-      }).catch(() => null);
-    }
-
-    // 5) Return response
-    res.json({
+    return res.json({
       summary,
-      meta: {
-        inputChars: text.length,
-        cached: false,
-        model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      },
+      meta: { inputChars: text.length, cached: false, model: process.env.GEMINI_MODEL || "gemini-1.5-flash" },
     });
   } catch (err) {
-    next(err);
+    return next(err);
   }
 });
 

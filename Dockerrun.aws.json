@@ -1,0 +1,44 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "<ECR_REGISTRY>/<ECR_REPO_API>:latest",
+      "essential": true,
+      "memory": 512,
+      "portMappings": [
+        { "hostPort": 8080, "containerPort": 8080 }
+      ],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT",     "value": "8080" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/aws/elasticbeanstalk/notagen",
+          "awslogs-region":        "us-east-1",
+          "awslogs-stream-prefix": "api"
+        }
+      }
+    },
+    {
+      "name": "client",
+      "image": "<ECR_REGISTRY>/<ECR_REPO_CLIENT>:latest",
+      "essential": true,
+      "memory": 128,
+      "portMappings": [
+        { "hostPort": 80, "containerPort": 80 }
+      ],
+      "links": ["api"],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/aws/elasticbeanstalk/notagen",
+          "awslogs-region":        "us-east-1",
+          "awslogs-stream-prefix": "client"
+        }
+      }
+    }
+  ]
+}
